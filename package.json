@@ -1,0 +1,27 @@
+{
+  "name": "photobucket",
+  "version": "1.0.0",
+  "description": "RAW photo organizer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adrian154/photobucket.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/adrian154/photobucket/issues"
+  },
+  "homepage": "https://github.com/adrian154/photobucket#readme",
+  "dependencies": {
+    "better-sqlite3": "^11.9.1",
+    "busboy": "^1.6.0",
+    "exiftool-vendored": "^29.3.0",
+    "express": "^5.1.0",
+    "sharp": "^0.34.1"
+  },
+  "type": "commonjs"
+}
