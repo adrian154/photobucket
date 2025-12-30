@@ -4,6 +4,7 @@ const db = require("./db");
 const path = require("path");
 const sharp = require("sharp");
 const upload = require("./backblaze");
+const {broadcast} = require("./events");
 const {spawn} = require("child_process");
 const {dcrawPath, tmpPath} = require("../config.json");
 const exiftool = require("exiftool-vendored").exiftool;
@@ -13,9 +14,13 @@ const THUMBNAIL_SIZE = 300;
 
 const queue = [];
 
+const updateStatus = (task, status, fail) => {
+    broadcast({id: task.id, status: status, fail: fail});
+};
+
 const processTask = async task => {
 
-    task.status = "processing";
+    updateStatus(task, "processing");
 
     const tiffPath = path.join(tmpPath, task.id + "-fullsize.tiff");
     const screenresPath = path.join(tmpPath, task.id + "-screenres.jpeg");
@@ -55,7 +60,7 @@ const processTask = async task => {
     // delete the TIFF intermediate
     fs.unlinkSync(tiffPath);
 
-    task.status = "uploading";
+    updateStatus(task, "uploading");
 
     // finish processing
     storeImage({
@@ -67,19 +72,18 @@ const processTask = async task => {
         meta: exifMetadata
     });
 
+    updateStatus(task, "done");
+
 };
 
 const storeImage = async (image) => {
-    
     const originalUrl = await upload(image.originalPath, "application/octet-stream");
     const screenresUrl = await upload(image.screenresPath, "image/jpeg");
     const thumbnailUrl = await upload(image.thumbnailPath, "image/jpeg");
     fs.unlinkSync(image.originalPath);
     fs.unlinkSync(image.screenresPath);
     fs.unlinkSync(image.thumbnailPath);
-
     db.insertStmt.run(image.id, image.originalName, originalUrl, screenresUrl, thumbnailUrl, JSON.stringify(image.meta), Date.now());
-
 };
 
 const process = async (task) => {
@@ -97,7 +101,8 @@ const process = async (task) => {
         try {
             await processTask(todoTask);
         } catch(err) {
-            todoTask.status = "error";
+            console.error(err);
+            updateStatus(task, "failed", true);
             todoTask.error = err.message;
         }   
     }
@@ -108,7 +113,6 @@ module.exports = {
     queue: queue,
     enqueue: (originalName, id, path) => {
         process({
-            status: "pending",
             originalName: originalName,
             id: id,
             path: path

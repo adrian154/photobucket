@@ -1,40 +1,14 @@
 <!DOCTYPE html>
 <html>
     <body>
-        <form>
-            <input type="file" id="upload" multiple>
-            <button>Submit</button>
-        </form>
         <script>
-            const form = document.querySelector("form");
-            const filePicker = document.getElementById("upload");
-
-            form.addEventListener("submit", (event) => {
-                event.preventDefault();
-                upload();
-            });
-
-            const upload = async () => {
-                for(const file of filePicker.files) {
-
-                    const formData = new FormData();
-                    formData.append("file", file);
-
-                    const req = new XMLHttpRequest();
-                    req.open("POST", "/upload");
-                    req.send(formData);
-                    
-                    await new Promise((reject, resolve) => {
-                        req.addEventListener("error", reject);
-                        req.addEventListener("progress", (event) => {
-                            if(event.loaded == event.total) {
-                                resolve();
-                            }
-                        });
-                    });
-
+            fetch("/photos").then(resp => resp.json()).then(photos => {
+                for(const photo of photos) {
+                    const img = document.createElement("img");
+                    img.src = photo.thumbnailUrl;
+                    document.body.append(img); 
                 }
-            };
+            });
         </script>
     </body>
 </html>

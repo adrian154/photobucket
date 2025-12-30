@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>
+            body {
+                max-width: 40em;
+                margin: auto;
+            }
+
+            .status-fail { color: #ff0000; }
+            .status-success { color: #26b524; }
+        </style>
+    </head>
+    <body>
+        <form>
+            <h1>upload photos</h1>
+            <input type="file" id="upload" multiple>
+            <button id="submit">Submit</button>
+        </form>
+        <div id="progress-list"></div>
+        <script src="scripts/upload.js"></script>
+    </body>
+</html>
