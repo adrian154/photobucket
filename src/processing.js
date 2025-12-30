@@ -13,6 +13,7 @@ const SCREENRES_SIZE = 1000;
 const THUMBNAIL_SIZE = 300;
 
 const queue = [];
+let working = false;
 
 const updateStatus = (task, status, fail) => {
     broadcast({id: task.id, status: status, fail: fail});
@@ -63,7 +64,7 @@ const processTask = async task => {
     updateStatus(task, "uploading");
 
     // finish processing
-    storeImage({
+    await storeImage({
         id: task.id,
         originalName: task.originalName,
         originalPath: task.path,
@@ -86,26 +87,31 @@ const storeImage = async (image) => {
     db.insertStmt.run(image.id, image.originalName, originalUrl, screenresUrl, thumbnailUrl, JSON.stringify(image.meta), Date.now());
 };
 
-const process = async (task) => {
+const process = async (newTask) => {
 
-    // if there are already tasks in the queue, just add and wait
-    if(queue.length > 0) {
-        queue.push(task);
+    // add to queue
+    queue.push(newTask);
+
+    // if worker loop already active, don't start another
+    if(working) {
         return;
     }
 
     // otherwise, begin draining queue
-    queue.push(task);
+    working = true;
     while(queue.length > 0) {
         const todoTask = await queue.shift();
         try {
             await processTask(todoTask);
         } catch(err) {
+            console.log(`error encountered while processing ${todoTask}:`);
             console.error(err);
-            updateStatus(task, "failed", true);
-            todoTask.error = err.message;
-        }   
+            updateStatus(todoTask, "failed", true);
+        }
     }
+
+    // done!
+    working = false;
 
 };
 
