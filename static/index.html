@@ -1,33 +1,12 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <style>
-            img {
-                width: 200px;
-                height: 200px;
-                object-fit: contain;
-            }
-
-            body {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, 200px);
-                gap: 10px;
-            }
-        </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" href="stylesheets/browser.css">
     </head>
     <body>
-        <script>
-            fetch("/photos").then(resp => resp.json()).then(photos => {
-                for(const photo of photos) {
-                    const a = document.createElement("a");
-                    a.href = photo.screenresUrl;
-                    const img = document.createElement("img");
-                    img.loading = "lazy";
-                    img.src = photo.thumbnailUrl;
-                    a.append(img);
-                    document.body.append(a); 
-                }
-            });
-        </script>
+        <p><a href="upload.html">upload photos</a></p>
+        <div id="photos"></div>
+        <script src="scripts/browser.js"></script>
     </body>
 </html>

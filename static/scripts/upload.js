@@ -15,7 +15,6 @@ const upload = async () => {
     const eventSource = new EventSource("/processing-events");
     const statusIndicators = {};
     eventSource.addEventListener("message", (event) => {
-        console.log(event);
         const data = JSON.parse(event.data);
         if(statusIndicators[data.id]) {
             const indicator = statusIndicators[data.id];

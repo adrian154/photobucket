@@ -4,17 +4,17 @@ const db = new Database("data/photobucket.db");
 db.exec(`CREATE TABLE IF NOT EXISTS photos (
     id TEXT PRIMARY KEY,
     originalName TEXT NOT NULL,
-    originalUrl TEXT NOT NULL,
-    screenresUrl TEXT NOT NULL,
-    thumbnailUrl TEXT NOT NULL,
     metadata TEXT NOT NULL,
-    uploadTimestamp INTEGER NOT NULL
+    uploadTimestamp INTEGER NOT NULL,
+    captureTimestamp INTEGER NOT NULL
 )`);
 
-const insertStmt = db.prepare("INSERT INTO photos (id, originalName, originalUrl, screenresUrl, thumbnailUrl, metadata, uploadTimestamp) VALUES (?, ?, ?, ?, ?, ?, ?)");
-const selectStmt = db.prepare("SELECT * FROM photos");
+const insertStmt = db.prepare("INSERT INTO photos (id, originalName, metadata, uploadTimestamp, captureTimestamp) VALUES (:id, :originalName, :metadata, :uploadTimestamp, :captureTimestamp)");
+const selectAllIdStmt = db.prepare("SELECT id FROM photos ORDER BY captureTimestamp");
+const selectPhotoStmt = db.prepare("SELECT * FROM photos WHERE id = ?");
 
 module.exports = {
     insertStmt,
-    selectStmt
+    selectAllIdStmt,
+    selectPhotoStmt
 };

@@ -3,25 +3,30 @@ const fs = require("fs");
 const db = require("./db");
 const path = require("path");
 const sharp = require("sharp");
-const upload = require("./backblaze");
+const {upload} = require("./backblaze");
 const {broadcast} = require("./events");
 const {spawn} = require("child_process");
 const {dcrawPath, tmpPath} = require("../config.json");
+const { createPipeline } = require("./work-queue");
 const exiftool = require("exiftool-vendored").exiftool;
 
-const SCREENRES_SIZE = 1000;
-const THUMBNAIL_SIZE = 300;
+const SCREENRES_SIZE = 1200;
+const THUMBNAIL_SIZE = 400;
 
-const queue = [];
-let working = false;
+const updateStatus = (id, status, fail) => {
+    broadcast({id: id, status: status, fail: fail});
+};
 
-const updateStatus = (task, status, fail) => {
-    broadcast({id: task.id, status: status, fail: fail});
+const computeCreateDate = (exif) => {
+    const dateObj = exif.CreateDate;
+    const offsetAbs = Math.abs(dateObj.tzoffsetMinutes);
+    const pad = number => String(number).padStart(2, '0');
+    return Date.parse(`${dateObj.year}-${pad(dateObj.month)}-${pad(dateObj.day)}T${pad(dateObj.hour)}:${pad(dateObj.minute)}:${pad(dateObj.second)}${dateObj.tzoffsetMinutes > 0 ? '+' : '-'}${pad(Math.floor(offsetAbs/60))}:${pad(offsetAbs%60)}`);
 };
 
 const processTask = async task => {
 
-    updateStatus(task, "processing");
+    updateStatus(task.id, "processing");
 
     const tiffPath = path.join(tmpPath, task.id + "-fullsize.tiff");
     const screenresPath = path.join(tmpPath, task.id + "-screenres.jpeg");
@@ -47,76 +52,64 @@ const processTask = async task => {
     const image = sharp(tiffPath);
     const meta = await image.metadata();
 
-    await image.clone().resize(meta.width >= meta.height ? SCREENRES_SIZE : null, meta.height >= meta.width ? SCREENRES_SIZE : null)
-        .jpeg()
+    await image.clone().resize(meta.width >= meta.height ? SCREENRES_SIZE : null, meta.height >= meta.width ? SCREENRES_SIZE : null, {fastShrinkOnLoad: false})
+        .jpeg({quality: 100})
         .toFile(screenresPath);
 
-    await image.clone().resize(meta.width >= meta.height ? THUMBNAIL_SIZE : null, meta.height >= meta.width ? THUMBNAIL_SIZE : null)
-        .jpeg()
+    await image.clone().resize(meta.width >= meta.height ? THUMBNAIL_SIZE : null, meta.height >= meta.width ? THUMBNAIL_SIZE : null, {fastShrinkOnLoad: false})
+        .jpeg({quality: 100})
         .toFile(thumbnailPath);
 
     // read metadata
     const exifMetadata = await exiftool.read(task.path);
-
+    const captureDate = computeCreateDate(exifMetadata);
+    
     // delete the TIFF intermediate
     fs.unlinkSync(tiffPath);
 
-    updateStatus(task, "uploading");
+    updateStatus(task.id, "waiting");
 
-    // finish processing
-    await storeImage({
+    // send image to storage pipeline
+    store({
         id: task.id,
         originalName: task.originalName,
         originalPath: task.path,
         screenresPath: screenresPath,
         thumbnailPath: thumbnailPath,
-        meta: exifMetadata
+        meta: exifMetadata,
+        captureTimestamp: captureDate
     });
-
-    updateStatus(task, "done");
 
 };
 
 const storeImage = async (image) => {
-    const originalUrl = await upload(image.originalPath, "application/octet-stream");
-    const screenresUrl = await upload(image.screenresPath, "image/jpeg");
-    const thumbnailUrl = await upload(image.thumbnailPath, "image/jpeg");
+    updateStatus(image.id, "storing");
+    await upload(image.originalPath, "application/octet-stream");
+    await upload(image.screenresPath, "image/jpeg");
+    await upload(image.thumbnailPath, "image/jpeg");
     fs.unlinkSync(image.originalPath);
     fs.unlinkSync(image.screenresPath);
     fs.unlinkSync(image.thumbnailPath);
-    db.insertStmt.run(image.id, image.originalName, originalUrl, screenresUrl, thumbnailUrl, JSON.stringify(image.meta), Date.now());
+    db.insertStmt.run({
+        id: image.id, 
+        originalName: image.originalName, 
+        metadata: JSON.stringify(image.meta),
+        uploadTimestamp: Date.now(),
+        captureTimestamp: image.captureTimestamp
+    });
+    updateStatus(image.id, "done");
 };
 
-const process = async (newTask) => {
+const handleFail = (err, task) => {
+    console.error(`error encountered while processing ${task.originalName}:`);
+    console.error(err);
+    updateStatus(task.id, "failed", true);
+}
 
-    // add to queue
-    queue.push(newTask);
-
-    // if worker loop already active, don't start another
-    if(working) {
-        return;
-    }
-
-    // otherwise, begin draining queue
-    working = true;
-    while(queue.length > 0) {
-        const todoTask = await queue.shift();
-        try {
-            await processTask(todoTask);
-        } catch(err) {
-            console.log(`error encountered while processing ${todoTask}:`);
-            console.error(err);
-            updateStatus(todoTask, "failed", true);
-        }
-    }
-
-    // done!
-    working = false;
-
-};
+const process = createPipeline(processTask, handleFail);
+const store = createPipeline(storeImage, handleFail);
 
 module.exports = {
-    queue: queue,
     enqueue: (originalName, id, path) => {
         process({
             originalName: originalName,

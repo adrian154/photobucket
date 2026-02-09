@@ -84,8 +84,8 @@ const upload = async (filePath, contentType) => {
                 continue;
             }
 
-            return String(new URL(`/file/${bucketName}/${encodeURIComponent(name)}`, downloadUrl));
-
+            return;
+            
         } catch(error) {
             console.error(error);
             continue;
@@ -110,10 +110,13 @@ const authorize = async () => {
 
     token = resp.authorizationToken;
     apiUrl = resp.apiInfo.storageApi.apiUrl;
-    downloadUrl = resp.apiInfo.storageApi.downloadUrl;
-    
+    downloadUrl = new URL(`/file/${bucketName}/`, resp.apiInfo.storageApi.downloadUrl);
+
 };
 
 authorize();
 
-module.exports = upload;
+module.exports = {
+    upload: upload,
+    getUrlBase: () => downloadUrl
+}

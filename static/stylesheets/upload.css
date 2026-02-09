@@ -1,0 +1,7 @@
+body {
+    max-width: 40em;
+    margin: auto;
+}
+
+.status-fail { color: #ff0000; }
+.status-success { color: #26b524; }
