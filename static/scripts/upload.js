@@ -13,16 +13,23 @@ const upload = async () => {
 
     // establish event source
     const eventSource = new EventSource("/processing-events");
-    const statusIndicators = {};
+    
+    // keep track of complete uploads
+    const completedUploads = {};
+
     eventSource.addEventListener("message", (event) => {
         const data = JSON.parse(event.data);
-        if(statusIndicators[data.id]) {
-            const indicator = statusIndicators[data.id];
-            indicator.textContent = data.status;
+        console.log(data);
+        if(completedUploads[data.id]) {
+            const statusElem = completedUploads[data.id].statusElem;
+            statusElem.textContent = data.status;
             if(data.status == "done") {
-                indicator.classList.add("status-success");
+                statusElem.classList.add("status-success");
+                setTimeout(() => {
+                    completedUploads[data.id].entryElem.remove();
+                }, 1000);
             } else if(data.fail) {
-                indicator.classList.add("status-fail");
+                statusElem.classList.add("status-fail");
             }
         }
     });
@@ -32,13 +39,14 @@ const upload = async () => {
     for(const file of filePicker.files) {
 
         const progressEntry = document.createElement("p");
-        progressList.prepend(progressEntry);
+        progressList.append(progressEntry);
         progressEntry.append(`${file.name}: `);
+
         const status = document.createElement("span");
         status.textContent = "upload pending";
         progressEntry.append(status);
         
-        toUpload.push({file: file, statusIndicator: status});
+        toUpload.push({file: file, statusElem: status, entryElem: progressEntry});
 
     }
 
@@ -47,35 +55,35 @@ const upload = async () => {
     submit.disabled = false;
 
     // start uploading
-    for(const {statusIndicator, file} of toUpload) {
+    for(const {statusElem, entryElem, file} of toUpload) {
 
         const formData = new FormData();
         formData.append("file", file);
 
-        const req = new XMLHttpRequest();
-        req.responseType = "json";
-        req.open("POST", "/upload");
-        req.send(formData);
+        const xhr = new XMLHttpRequest();
+        xhr.responseType = "json";
+        xhr.open("POST", "/upload");
 
         await new Promise((resolve, reject) => {
-            req.addEventListener("error", () => {
-                statusIndicator.textContent = `request failed`;
-                statusIndicator.classList.add("status-fail");
+            xhr.addEventListener("error", () => {
+                statusElem.textContent = `request failed`;
+                statusElem.classList.add("status-fail");
                 resolve();
             });
-            req.addEventListener("progress", (event) => {
-                statusIndicator.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
+            xhr.upload.addEventListener("progress", (event) => {
+                statusElem.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
             });
-            req.addEventListener("readystatechange", (event) => {
-                if(req.readyState == XMLHttpRequest.DONE) {
-                    if(req.status == 200) {
-                        statusIndicators[req.response.id] = statusIndicator;
+            xhr.addEventListener("readystatechange", (event) => {
+                if(xhr.readyState == XMLHttpRequest.DONE) {
+                    if(xhr.status == 200) {
+                        completedUploads[xhr.response.id] = {statusElem, entryElem};
                         resolve();
                     } else {
-                        status.textContent = `error (${req.status} ${req.statusText})`;
+                        status.textContent = `error (${xhr.status} ${xhr.statusText})`;
                     }
                 }
             });
+            xhr.send(formData);
         });
 
     }

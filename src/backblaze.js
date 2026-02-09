@@ -73,8 +73,7 @@ const upload = async (filePath, contentType) => {
                     "X-Bz-File-Name": name,
                     "Content-Type": contentType,
                     "Content-Length": fs.statSync(filePath).size + 40,
-                    "X-Bz-Content-Sha1": "hex_digits_at_end",
-                    "X-Bz-Info-b2-Cache-Control": "max-age=31536000, immutable"
+                    "X-Bz-Content-Sha1": "hex_digits_at_end"
                 },
                 body: uploadStream,
                 duplex: "half"
@@ -82,6 +81,8 @@ const upload = async (filePath, contentType) => {
 
             const resp = await req.json();
             if(!req.ok) {
+                console.error(`got HTTP ${req.status} from Backblaze:`);
+                console.error(resp);
                 continue;
             }
 
@@ -109,6 +110,7 @@ const authorize = async () => {
     const resp = await req.json();
     if(!req.ok) throw new Error(resp.code);
 
+    console.log("Backblaze authorization successful");
     token = resp.authorizationToken;
     apiUrl = resp.apiInfo.storageApi.apiUrl;
     downloadUrl = new URL(`/file/${bucketName}/`, resp.apiInfo.storageApi.downloadUrl);
