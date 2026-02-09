@@ -73,7 +73,8 @@ const upload = async (filePath, contentType) => {
                     "X-Bz-File-Name": name,
                     "Content-Type": contentType,
                     "Content-Length": fs.statSync(filePath).size + 40,
-                    "X-Bz-Content-Sha1": "hex_digits_at_end"
+                    "X-Bz-Content-Sha1": "hex_digits_at_end",
+                    "X-Bz-Info-b2-Cache-Control": "max-age=31536000, immutable"
                 },
                 body: uploadStream,
                 duplex: "half"

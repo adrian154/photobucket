@@ -1,6 +1,7 @@
 body {
     max-width: 40em;
     margin: auto;
+    font-family: sans-serif;
 }
 
 .status-fail { color: #ff0000; }

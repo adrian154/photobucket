@@ -35,7 +35,7 @@ const upload = async () => {
         progressList.prepend(progressEntry);
         progressEntry.append(`${file.name}: `);
         const status = document.createElement("span");
-        status.textContent = "pending";
+        status.textContent = "upload pending";
         progressEntry.append(status);
         
         toUpload.push({file: file, statusIndicator: status});
@@ -64,7 +64,7 @@ const upload = async () => {
                 resolve();
             });
             req.addEventListener("progress", (event) => {
-                statusIndicator.textContent = Math.round(event.loaded/event.total * 100) + "%";
+                statusIndicator.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
             });
             req.addEventListener("readystatechange", (event) => {
                 if(req.readyState == XMLHttpRequest.DONE) {
