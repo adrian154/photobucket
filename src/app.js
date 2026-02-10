@@ -10,15 +10,6 @@ const sseHandler = require("./events").handler;
 
 const app = express();
 
-const generateId = () => {
-    const alpha = "abcdefghijklmnopqrstuwvxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const res = [];
-    for(let i = 0; i < 8; i++) {
-        res.push(alpha[Math.floor(Math.random() * alpha.length)]);
-    }
-    return res.join("");
-};
-
 app.get("/urlBase", (req, res) => {
     res.json(getUrlBase());
 })
@@ -37,21 +28,21 @@ app.get("/photos/:id", (req, res) => {
 }); 
 
 app.post("/upload", (req, res) => {
-    
-    let id = null;
 
     const bb = busboy({headers: req.headers});
     bb.on("file", (name, file, info) => {
-        id = generateId();
-        const destPath = path.join(tmpPath, `${id}-original`);
-        file.pipe(fs.createWriteStream(destPath));
-        file.on("end", () => {
-            processing.enqueue(info.filename, id, destPath);
+        const tmpName = `tmp${String(Math.random()).slice(2)}`;
+        const destPath = path.join(tmpPath, tmpName);
+        const writeStream = fs.createWriteStream(destPath);
+        writeStream.on("finish", () => {
+            processing.enqueue(info.filename, destPath, req.query.trackingTag || "dummy");
         });
+        file.pipe(writeStream);
+        
     });
 
     bb.on("close", () => {
-        res.status(200).json({id: id});
+        res.sendStatus(200);
     });
 
     req.pipe(bb);

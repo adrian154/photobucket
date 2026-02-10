@@ -14,22 +14,19 @@ const upload = async () => {
     // establish event source
     const eventSource = new EventSource("/processing-events");
     
-    // keep track of complete uploads
-    const completedUploads = {};
-
+    const ongoingUploads = {};
     eventSource.addEventListener("message", (event) => {
         const data = JSON.parse(event.data);
-        console.log(data);
-        if(completedUploads[data.id]) {
-            const statusElem = completedUploads[data.id].statusElem;
-            statusElem.textContent = data.status;
+        const upload = ongoingUploads[data.trackingTag];
+        if(upload) {
+            upload.statusElem.textContent = data.status;
             if(data.status == "done") {
-                statusElem.classList.add("status-success");
+                upload.statusElem.classList.add("status-success");
                 setTimeout(() => {
-                    completedUploads[data.id].entryElem.remove();
+                    upload.entryElem.remove();
                 }, 1000);
             } else if(data.fail) {
-                statusElem.classList.add("status-fail");
+                upload.statusElem.classList.add("status-fail");
             }
         }
     });
@@ -37,6 +34,10 @@ const upload = async () => {
     // create requests for each file
     const toUpload = [];
     for(const file of filePicker.files) {
+
+        // generate unique tracking tag for each upload
+        // server will identify update events with this tracking tag
+        const trackingTag = "upload" + String(Math.random()).slice(2);
 
         const progressEntry = document.createElement("p");
         progressList.append(progressEntry);
@@ -46,7 +47,7 @@ const upload = async () => {
         status.textContent = "upload pending";
         progressEntry.append(status);
         
-        toUpload.push({file: file, statusElem: status, entryElem: progressEntry});
+        toUpload.push({file: file, statusElem: status, entryElem: progressEntry, trackingTag: trackingTag});
 
     }
 
@@ -55,14 +56,20 @@ const upload = async () => {
     submit.disabled = false;
 
     // start uploading
-    for(const {statusElem, entryElem, file} of toUpload) {
+    for(const {statusElem, entryElem, file, trackingTag} of toUpload) {
+
+        // associate tag with DOM elements
+        ongoingUploads[trackingTag] = {
+            statusElem: statusElem,
+            entryElem: entryElem
+        };
 
         const formData = new FormData();
         formData.append("file", file);
 
         const xhr = new XMLHttpRequest();
         xhr.responseType = "json";
-        xhr.open("POST", "/upload");
+        xhr.open("POST", `/upload?trackingTag=${encodeURIComponent(trackingTag)}`);
 
         await new Promise((resolve, reject) => {
             xhr.addEventListener("error", () => {
@@ -76,10 +83,11 @@ const upload = async () => {
             xhr.addEventListener("readystatechange", (event) => {
                 if(xhr.readyState == XMLHttpRequest.DONE) {
                     if(xhr.status == 200) {
-                        completedUploads[xhr.response.id] = {statusElem, entryElem};
                         resolve();
                     } else {
-                        status.textContent = `error (${xhr.status} ${xhr.statusText})`;
+                        statusElem.textContent = `error (${xhr.status} ${xhr.statusText})`;
+                        statusElem.classList.add("status-fail");
+                        resolve();
                     }
                 }
             });
