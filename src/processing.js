@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const {upload} = require("./backblaze");
 const {broadcast} = require("./events");
 const {spawn} = require("child_process");
-const { createPipeline } = require("./work-queue");
+const {createPipeline} = require("./work-queue");
 const {dcrawPath, tmpPath} = require("../config.json");
 const exiftool = require("exiftool-vendored").exiftool;
 

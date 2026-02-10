@@ -1,5 +1,4 @@
 const fs = require("fs");
-const path = require("path");
 const crypto = require("crypto");
 const {PassThrough} = require("stream");
 const {keyId, key, bucketId, bucketName} = require("../config.json").backblaze;

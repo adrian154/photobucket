@@ -15,7 +15,7 @@ app.get("/urlBase", (req, res) => {
 })
 
 app.get("/photos", (req, res) => {
-    res.json(db.selectAllIdStmt.all());
+    res.json(db.selectAllStmt.all());
 });
 
 app.get("/photos/:id", (req, res) => {

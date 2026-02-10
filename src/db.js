@@ -10,11 +10,11 @@ db.exec(`CREATE TABLE IF NOT EXISTS photos (
 )`);
 
 const insertStmt = db.prepare("INSERT INTO photos (id, originalName, metadata, uploadTimestamp, captureTimestamp) VALUES (:id, :originalName, :metadata, :uploadTimestamp, :captureTimestamp)");
-const selectAllIdStmt = db.prepare("SELECT id FROM photos ORDER BY captureTimestamp");
+const selectAllStmt = db.prepare("SELECT id, originalName, captureTimestamp FROM photos ORDER BY captureTimestamp ASC");
 const selectPhotoStmt = db.prepare("SELECT * FROM photos WHERE id = ?");
 
 module.exports = {
     insertStmt,
-    selectAllIdStmt,
+    selectAllStmt,
     selectPhotoStmt
 };
