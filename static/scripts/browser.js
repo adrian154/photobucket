@@ -34,7 +34,6 @@ const loadPhotos = async () => {
 };
 
 window.addEventListener("keydown", event => {
-    console.log(event.key);
     if(event.key == "Escape") {
         photoViewer.classList.remove("shown");
     }

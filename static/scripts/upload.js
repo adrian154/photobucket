@@ -55,6 +55,9 @@ const upload = async () => {
     form.reset();
     submit.disabled = false;
 
+    // set page to prompt before closure
+    window.onbeforeunload = () => true;
+
     // start uploading
     for(const {statusElem, entryElem, file, trackingTag} of toUpload) {
 
@@ -72,28 +75,36 @@ const upload = async () => {
         xhr.open("POST", `/upload?trackingTag=${encodeURIComponent(trackingTag)}`);
 
         await new Promise((resolve, reject) => {
+
             xhr.addEventListener("error", () => {
-                statusElem.textContent = `request failed`;
+                statusElem.textContent = `connection failed`;
                 statusElem.classList.add("status-fail");
                 resolve();
             });
+
             xhr.upload.addEventListener("progress", (event) => {
                 statusElem.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
             });
+
             xhr.addEventListener("readystatechange", (event) => {
                 if(xhr.readyState == XMLHttpRequest.DONE) {
                     if(xhr.status == 200) {
                         resolve();
                     } else {
-                        statusElem.textContent = `error (${xhr.status} ${xhr.statusText})`;
+                        statusElem.textContent = `error (${xhr.status})`;
                         statusElem.classList.add("status-fail");
                         resolve();
                     }
                 }
             });
+
             xhr.send(formData);
+
         });
 
     }
+    
+    // after all uploads are complete, no need to prompt before closure
+    window.onbeforeunload = null;
 
 }

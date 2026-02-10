@@ -7,8 +7,8 @@ const crypto = require("crypto");
 const {upload} = require("./backblaze");
 const {broadcast} = require("./events");
 const {spawn} = require("child_process");
-const {dcrawPath, tmpPath} = require("../config.json");
 const { createPipeline } = require("./work-queue");
+const {dcrawPath, tmpPath} = require("../config.json");
 const exiftool = require("exiftool-vendored").exiftool;
 
 const SCREENRES_SIZE = 1600;
@@ -47,6 +47,7 @@ const processTask = async task => {
     if(db.selectPhotoStmt.get(id)) {
         updateStatus(task.trackingTag, "duplicate");
         fs.unlinkSync(task.path);
+        return;
     }
 
     const tiffPath = path.join(tmpPath, id + "-fullsize.tiff");
@@ -130,7 +131,6 @@ const storeImage = async (image) => {
 const handleFail = (err, task) => {
     console.error(`error encountered while processing ${task.originalName}:`);
     console.error(err);
-    fs.unlinkSync(task.path || task.originalPath);
     updateStatus(task.trackingTag, "failed", true);
 }
 
