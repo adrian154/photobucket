@@ -50,9 +50,9 @@ const processTask = async task => {
         return;
     }
 
-    const tiffPath = path.join(tmpPath, id + "-fullsize.tiff");
-    const screenresPath = path.join(tmpPath, id + "-screenres.jpeg");
-    const thumbnailPath = path.join(tmpPath, id + "-thumbnail.jpeg");
+    const tiffPath = path.join(tmpPath, id+"-fullsize.tiff");
+    const screenresPath = path.join(tmpPath, id+"screenres");
+    const thumbnailPath = path.join(tmpPath, id+"thumb");
     
     // convert raw file to TIFF
     // flags: -w = use camera white balance, -T = write TIFF, -h = combine 2x2 pixels instead of demosaicing, -c = write to stdout
@@ -109,11 +109,11 @@ const storeImage = async (image) => {
     updateStatus(image.trackingTag, "storing");
 
     // upload and delete files
-    await upload(image.originalPath, "application/octet-stream");
+    await upload(image.originalPath, `${image.id}-original`, "application/octet-stream");
     fs.unlinkSync(image.originalPath);
-    await upload(image.screenresPath, "image/jpeg");
+    await upload(image.screenresPath, `${image.id}-screenres.jpeg`, "image/jpeg");
     fs.unlinkSync(image.screenresPath);
-    await upload(image.thumbnailPath, "image/jpeg");
+    await upload(image.thumbnailPath, `${image.id}-thumbnail.jpeg`, "image/jpeg");
     fs.unlinkSync(image.thumbnailPath);
 
     db.insertStmt.run({
@@ -131,7 +131,7 @@ const storeImage = async (image) => {
 const handleFail = (err, task) => {
     console.error(`error encountered while processing ${task.originalName}:`);
     console.error(err);
-    updateStatus(task.trackingTag, "failed", true);
+    updateStatus(task.trackingTag, "processing failed", true);
 }
 
 const process = createPipeline(processTask, handleFail);

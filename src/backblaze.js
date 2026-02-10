@@ -53,13 +53,11 @@ const getUploadUrl = async (isRetry) => {
 
 };
 
-const upload = async (filePath, contentType) => {
+const upload = async (filePath, remoteName, contentType) => {
 
     const readStream = fs.createReadStream(filePath);
     const uploadStream = new UploadStream();
     readStream.pipe(uploadStream);
-    
-    const name = path.basename(filePath);
 
     for(let i = 0; i < uploadAttempts; i++) {
 
@@ -70,7 +68,7 @@ const upload = async (filePath, contentType) => {
                 method: "POST",
                 headers: {
                     "Authorization": authorizationToken,
-                    "X-Bz-File-Name": name,
+                    "X-Bz-File-Name": remoteName,
                     "Content-Type": contentType,
                     "Content-Length": fs.statSync(filePath).size + 40,
                     "X-Bz-Content-Sha1": "hex_digits_at_end"

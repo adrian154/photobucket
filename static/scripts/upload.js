@@ -89,6 +89,7 @@ const upload = async () => {
             xhr.addEventListener("readystatechange", (event) => {
                 if(xhr.readyState == XMLHttpRequest.DONE) {
                     if(xhr.status == 200) {
+                        statusElem.textContent = "waiting";
                         resolve();
                     } else {
                         statusElem.textContent = `error (${xhr.status})`;
