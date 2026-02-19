@@ -3,11 +3,42 @@ const photoViewer = document.getElementById("photo-view");
 const bigPhoto = document.getElementById("big-photo");
 const nav = document.querySelector("nav");
 
+// photo info elements
+const infoTitle = document.getElementById("info-title");
+const infoCaptureDate = document.getElementById("info-capture-date");
+const infoOriginal = document.getElementById("info-original");
+const infoScreenres = document.getElementById("info-screenres");
+const infoThumbnail = document.getElementById("info-thumbnail");
+
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+let shownPhoto = null;
+
 const setupPhotoView = (photo) => {
+
+    if(!photo) {
+        return;
+    }
+
     photoViewer.classList.add("shown");
+    shownPhoto = photo;
+
+    // load screenres photo
     bigPhoto.src = photo.screenresUrl;
+
+    // populate info fields
+    const date = new Date(photo.captureTimestamp);
+    infoTitle.textContent = photo.originalName;
+    infoCaptureDate.textContent = date.toLocaleString([], {
+        dateStyle: "medium",
+        timeStyle: "short"
+    });
+
+    // downloads
+    infoOriginal.href = `/photos/${photo.id}/original`;
+    infoScreenres.href = photo.screenresUrl;
+    infoThumbnail.href = photo.thumbnailUrl;
+
 };
 
 const loadPhotos = async () => {
@@ -20,7 +51,11 @@ const loadPhotos = async () => {
     let curPhotoGrid = null;
     let curMonthList = null;
 
-    for(const photo of photos) {
+    for(let i = 0; i < photos.length; i++) {
+
+        const photo = photos[i];
+        photo.prev = photos[i - 1];
+        photo.next = photos[i + 1];
 
         // for each month, create a new photogrid
         const captureDate = new Date(photo.captureTimestamp);
@@ -96,6 +131,11 @@ const loadPhotos = async () => {
 window.addEventListener("keydown", event => {
     if(event.key == "Escape") {
         photoViewer.classList.remove("shown");
+        shownPhoto = null;
+    } else if(shownPhoto && event.key == "ArrowLeft") {
+        setupPhotoView(shownPhoto.prev);
+    } else if(shownPhoto && event.key == "ArrowRight") {
+        setupPhotoView(shownPhoto.next);
     }
 });
 

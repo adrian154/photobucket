@@ -8,6 +8,8 @@ const {tmpPath} = require("../config.json");
 const {getUrlBase} = require("./backblaze");
 const sseHandler = require("./events").handler;
 
+const {Readable} = require("stream");
+
 const app = express();
 
 app.get("/urlBase", (req, res) => {
@@ -26,6 +28,24 @@ app.get("/photos/:id", (req, res) => {
         res.sendStatus(404);
     }
 }); 
+
+app.get("/photos/:id/original", (req, res) => {
+    const photo = db.selectPhotoStmt.get(req.params.id);
+    if(photo) {
+        const urlBase = getUrlBase();
+        const url = new URL(photo.id + "-original", urlBase);
+        fetch(url).then(resp => {
+            res.status(resp.status);
+            res.header("Content-Disposition", `attachment; filename="${photo.originalName}"`);
+            Readable.fromWeb(resp.body).pipe(res);
+        }).catch(err => {
+            console.error(err);
+            res.sendStatus(500);
+        });
+    } else {
+        res.sendStatus(404);
+    }
+});
 
 app.post("/upload", (req, res) => {
 
