@@ -1,2 +1,3 @@
 # photobucket
-RAW photo organizer
+
+RAW photo archiver. Based on Backblaze and dcraw.
