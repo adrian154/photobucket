@@ -116,6 +116,7 @@ const storeImage = async (image) => {
     await upload(image.thumbnailPath, `${image.id}-thumbnail.jpeg`, "image/jpeg");
     fs.unlinkSync(image.thumbnailPath);
 
+    // finally store to database
     db.insertStmt.run({
         id: image.id, 
         originalName: image.originalName, 

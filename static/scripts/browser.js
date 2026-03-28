@@ -20,6 +20,9 @@ const setupPhotoView = (photo) => {
         return;
     }
 
+    // first, remove old photo source
+    bigPhoto.src = "";
+
     photoViewer.classList.add("shown");
     shownPhoto = photo;
 
@@ -47,6 +50,8 @@ const loadPhotos = async () => {
     const resp = await fetch("/photos");
     const photos = await resp.json();
 
+    document.title = `photobucket - ${photos.length} photos`;
+
     let curDate = null, curMonth = null, curYear = null;
     let curPhotoGrid = null;
     let curMonthList = null;
@@ -63,9 +68,14 @@ const loadPhotos = async () => {
 
         if(date != curDate || month != curMonth || year != curYear) {
 
+            const headerA = document.createElement("a");
             const header = document.createElement("h1");
+            const headerId = `${year}${MONTHS[month]}${date}`;
+            header.id = headerId;
             header.textContent = `${MONTHS[month]} ${date}, ${year}`;
-            photoBrowser.append(header);
+            headerA.append(header);
+            headerA.href = `#${headerId}`;
+            photoBrowser.append(headerA);
 
             const photogrid = document.createElement("div");
             photogrid.classList.add("photo-grid");
@@ -73,7 +83,7 @@ const loadPhotos = async () => {
             
             curPhotoGrid = photogrid;
 
-            // if we crossed into a new year, add year header tp nav
+            // if we crossed into a new year, add year header to nav
             if(year != curYear) {
              
                 const p = document.createElement("p");
@@ -86,9 +96,8 @@ const loadPhotos = async () => {
 
             }
 
-            // if we crossed into a new month, add month jumplink to nav
+            // if we crossed into a new month, add new jumplink to nav
             if(month != curMonth) {
-                header.id = `gridheader_${month}_${year}`;
                 const li = document.createElement("li");
                 const a = document.createElement("a");
                 a.href = '#' + header.id;
@@ -123,6 +132,12 @@ const loadPhotos = async () => {
             setupPhotoView(photo);
         });
 
+    }
+
+    // once photos are loaded, jump to appropriate section header
+    const jumpToElem = document.getElementById(window.location.hash.slice(1));
+    if(jumpToElem) {
+        jumpToElem.scrollIntoView();
     }
 
 };

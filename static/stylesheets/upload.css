@@ -1,7 +1,26 @@
 body {
     max-width: 40em;
     margin: auto;
-    font-family: sans-serif;
+}
+
+h1 {
+    font-weight: 500;
+}
+
+#progress-list {
+    margin: 1em 0;
+}
+
+.progress-entry {
+    background-color: #e4e4e4;
+    padding: 0.5em;
+    margin: 0.5em 0;
+}
+
+.progress-entry .entry-status { float: right; }
+
+.progress-entry progress {
+    width: 100%;
 }
 
 .status-fail { color: #ff0000; }

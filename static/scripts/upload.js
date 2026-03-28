@@ -3,109 +3,183 @@ const submit = document.getElementById("submit");
 const filePicker = document.getElementById("upload");
 const progressList = document.getElementById("progress-list");
 
+// listen for processing status events, and update display
+const ongoingUploads = {};
+const eventSource = new EventSource("/processing-events");
+eventSource.addEventListener("message", (event) => {
+    const data = JSON.parse(event.data);
+    handleStatusEvent(data);
+});
+
+// this function may be invoked by an incoming SSE event, or when an xhr error occurs locally
+const handleStatusEvent = event => {
+    const upload = ongoingUploads[event.trackingTag];
+    if(upload) {
+        
+        upload.statusElem.textContent = event.status;
+
+        // upload color based on status
+        if(event.status == "done") {
+            upload.statusElem.classList.add("status-success");
+        } else if(event.fail) {
+            upload.statusElem.classList.add("status-fail");
+        }
+
+        // if done or duplicate, no need to keep status indicator around
+        if(event.status == "done" || event.status == "duplicate") {
+            setTimeout(() => {
+                upload.entryElem.remove();
+            }, 1000);
+        }
+
+        // if failed, show retry button
+        if(event.fail) {
+            upload.retryElem.style.display = "";
+        }
+
+    }
+};
+
 form.addEventListener("submit", (event) => {
     event.preventDefault();
     submit.disabled = true;
-    upload();
+    ingestForm();
 });
 
-const upload = async () => {
+// keep queue of files to uplaod
+const toUpload = [];
+let uploading = false;
 
-    // establish event source
-    const eventSource = new EventSource("/processing-events");
+const enqueueUpload = async (upload) => {
     
-    const ongoingUploads = {};
-    eventSource.addEventListener("message", (event) => {
-        const data = JSON.parse(event.data);
-        const upload = ongoingUploads[data.trackingTag];
-        if(upload) {
-            upload.statusElem.textContent = data.status;
-            if(data.status == "done") {
-                upload.statusElem.classList.add("status-success");
-                setTimeout(() => {
-                    upload.entryElem.remove();
-                }, 1000);
-            } else if(data.fail) {
-                upload.statusElem.classList.add("status-fail");
-            }
+    // add upload to queue
+    toUpload.push(upload);
+
+    // if already busy uploading, no need to do anything else
+    if(uploading) {
+        return;
+    }
+
+    // otherwise, begin draining queue
+    uploading = true;
+    window.onbeforeunload = () => true; // prompt before closure
+    while(toUpload.length > 0) {
+        const curUpload = toUpload.shift();
+        try {
+            await uploadFile(curUpload);
+        } catch(error) {
+            console.error(error);
         }
+    }
+
+    // done: return to normal state
+    uploading = false;
+    window.onbeforeunload = null;
+
+};
+
+const uploadFile = async (upload) => {
+
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = "json";
+    xhr.open("POST", `/upload?trackingTag=${encodeURIComponent(upload.trackingTag)}`);
+
+    await new Promise((resolve, reject) => {
+        
+        xhr.addEventListener("error", () => {
+            handleStatusEvent({
+                trackingTag: upload.trackingTag,
+                status: "connection error", 
+                fail: true
+            });
+            resolve();
+        });
+
+        xhr.upload.addEventListener("progress", (event) => {
+            upload.progressElem.value = event.loaded / event.total;
+            upload.statusElem.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
+        });
+
+        xhr.addEventListener("readystatechange", (event) => {
+            if(xhr.readyState == XMLHttpRequest.DONE) {
+                if(xhr.status == 200) {
+                    upload.statusElem.textContent = "waiting";
+                    resolve();
+                } else {
+                    handleStatusEvent({
+                        trackingTag: upload.trackingTag,
+                        status: `error (${xhr.status})`,
+                        fail: true
+                    });
+                    resolve();
+                }
+            }
+        });
+
+        const formData = new FormData();
+        formData.append("file", upload.file);
+        xhr.send(formData);
+        
     });
 
-    // create requests for each file
-    const toUpload = [];
+};
+
+const ingestForm = async () => {
+
+    // set up each file for uploading
     for(const file of filePicker.files) {
+
+        let upload = null;
 
         // generate unique tracking tag for each upload
         // server will identify update events with this tracking tag
         const trackingTag = "upload" + String(Math.random()).slice(2);
 
-        const progressEntry = document.createElement("p");
+        // create progress tracking ui
+        const progressEntry = document.createElement("div");
+        progressEntry.classList.add("progress-entry");
         progressList.append(progressEntry);
-        progressEntry.append(`${file.name}: `);
+       
+        const entryFilename = document.createElement("span");
+        entryFilename.classList = "entry-filename";
+        entryFilename.textContent = file.name;
+        progressEntry.append(entryFilename);
 
-        const status = document.createElement("span");
-        status.textContent = "upload pending";
-        progressEntry.append(status);
-        
-        toUpload.push({file: file, statusElem: status, entryElem: progressEntry, trackingTag: trackingTag});
+        const retryButton = document.createElement("button");
+        retryButton.style.display = "none";
+        retryButton.textContent = "retry...";
+        retryButton.addEventListener("click", () => {
+            retryButton.style.display = "";
+            entryStatus.textContent = "";
+            entryProgress.value = 0;
+            enqueueUpload(upload);
+        });
+        progressEntry.append(" ", retryButton);        
+
+        const entryStatus = document.createElement("span");
+        entryStatus.classList = "entry-status";
+        entryStatus.textContent = "";
+        progressEntry.append(entryStatus);
+
+        const entryProgress = document.createElement("progress");
+        entryProgress.value = 0;
+        progressEntry.append(entryProgress);
+
+        upload = {
+            file: file,
+            statusElem: entryStatus,
+            entryElem: progressEntry,
+            progressElem: entryProgress,
+            retryElem: retryButton,
+            trackingTag: trackingTag
+        };
+        ongoingUploads[trackingTag] = upload;
+        enqueueUpload(upload);
 
     }
 
     // reset & re-enable the form
     form.reset();
     submit.disabled = false;
-
-    // set page to prompt before closure
-    window.onbeforeunload = () => true;
-
-    // start uploading
-    for(const {statusElem, entryElem, file, trackingTag} of toUpload) {
-
-        // associate tag with DOM elements
-        ongoingUploads[trackingTag] = {
-            statusElem: statusElem,
-            entryElem: entryElem
-        };
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const xhr = new XMLHttpRequest();
-        xhr.responseType = "json";
-        xhr.open("POST", `/upload?trackingTag=${encodeURIComponent(trackingTag)}`);
-
-        await new Promise((resolve, reject) => {
-
-            xhr.addEventListener("error", () => {
-                statusElem.textContent = `connection failed`;
-                statusElem.classList.add("status-fail");
-                resolve();
-            });
-
-            xhr.upload.addEventListener("progress", (event) => {
-                statusElem.textContent = `uploading ${Math.round(event.loaded/event.total * 100)}%`;
-            });
-
-            xhr.addEventListener("readystatechange", (event) => {
-                if(xhr.readyState == XMLHttpRequest.DONE) {
-                    if(xhr.status == 200) {
-                        statusElem.textContent = "waiting";
-                        resolve();
-                    } else {
-                        statusElem.textContent = `error (${xhr.status})`;
-                        statusElem.classList.add("status-fail");
-                        resolve();
-                    }
-                }
-            });
-
-            xhr.send(formData);
-
-        });
-
-    }
-    
-    // after all uploads are complete, no need to prompt before closure
-    window.onbeforeunload = null;
 
 }
